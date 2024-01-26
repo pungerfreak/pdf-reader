@@ -11,14 +11,16 @@ class PDF::Reader
     attr_reader :width
     attr_reader :font_size
     attr_reader :text
+    attr_reader :space_width
 
     alias :to_s :text
 
-    def initialize(x, y, width, font_size, text)
+    def initialize(x, y, width, font_size, text, space_width)
       @origin = PDF::Reader::Point.new(x, y)
       @width = width
       @font_size = font_size
       @text = text
+      @space_width = space_width
     end
 
     # Allows collections of TextRun objects to be sorted. They will be sorted
@@ -64,10 +66,11 @@ class PDF::Reader
     def +(other)
       raise ArgumentError, "#{other} cannot be merged with this run" unless mergable?(other)
 
-      if (other.x - endx) <( font_size * 0.2)
-        TextRun.new(x, y, other.endx - x, font_size, text + other.text)
+      calculated_space_width = (space_width.zero? ? (0.2 * font_size) : (space_width * font_size)).round(10)
+      if (other.x - endx).round(10) < calculated_space_width
+        TextRun.new(x, y, other.endx - x, font_size, text + other.text, space_width)
       else
-        TextRun.new(x, y, other.endx - x, font_size, "#{text} #{other.text}")
+        TextRun.new(x, y, other.endx - x, font_size, "#{text} #{other.text}", space_width)
       end
     end
 
@@ -98,7 +101,7 @@ class PDF::Reader
     end
 
     def mergable_range
-      @mergable_range ||= Range.new(endx - 3, endx + font_size)
+      @mergable_range ||= Range.new(endx - 3, endx + (space_width.zero? ? font_size : space_width * font_size))
     end
 
     # Assume string encoding is marked correctly and we can trust String#size to return a
